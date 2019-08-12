@@ -5,12 +5,16 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 )
 
 var bot = Bot{
 	token,
 	apiBaseURL,
-	http.DefaultClient,
+	&http.Client{
+		Timeout: time.Minute * 2,
+	},
+	time.Minute,
 }
 
 func TestBot_SendText(t *testing.T) {
@@ -39,12 +43,22 @@ func TestBot_SendFile(t *testing.T) {
 		FileID: "05j5L69UrfAdj8tZCGyi8H5d5160d61af",
 	}
 
+	go func() {
+		for range time.Tick(time.Second * 10) {
+			bot.SendChatActions(ChatActionsRequest{"p.radkov@corp.mail.ru", []ChatAction{}})
+		}
+	}()
+
 	resp, err := bot.SendFile(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	log.Printf("%#v", resp)
+
+	x, cancel := bot.PollEvents()
+	<-x
+	cancel()
 }
 
 func TestBot_SendNewFile(t *testing.T) {

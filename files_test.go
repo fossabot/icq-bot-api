@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestBot_GetFileInfo(t *testing.T) {
@@ -11,6 +12,7 @@ func TestBot_GetFileInfo(t *testing.T) {
 		token,
 		apiBaseURL,
 		http.DefaultClient,
+		time.Minute,
 	}
 
 	data, err := bot.GetFileInfo(FileID("05j5Lk9Oka1VBpeMLS7Qv35d5189ac1af"))

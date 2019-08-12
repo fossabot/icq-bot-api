@@ -99,15 +99,17 @@ func (b *Bot) GetChatInfo(r ChatID) (*ChatInfoResponse, error) {
 	return resp, nil
 }
 
+type ChatAction string
+
 const (
-	ChatActionTyping  = "typing"
-	ChatActionLooking = "looking"
+	ChatActionTyping  ChatAction = "typing"
+	ChatActionLooking ChatAction = "looking"
 )
 
 //easyjson:json
 type ChatActionsRequest struct {
 	ChatID  ChatID
-	Actions []string
+	Actions []ChatAction
 }
 
 func (r *ChatActionsRequest) validate() error {
@@ -118,12 +120,12 @@ func (r *ChatActionsRequest) setQuery(q url.Values) {
 	r.ChatID.setQuery(q)
 
 	for _, action := range r.Actions {
-		q.Add("actions", action)
+		q.Add("actions", string(action))
 	}
 }
 
 func (b *Bot) SendChatActions(r ChatActionsRequest) (*StatusResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/getAdmins", nil)
+	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/sendActions", nil)
 	if err != nil {
 		return nil, err
 	}
