@@ -77,7 +77,7 @@ func TestBot_SendNewFile(t *testing.T) {
 func TestBot_EditMessage(t *testing.T) {
 	req := &EditMessageRequest{
 		ChatID:    "p.radkov@corp.mail.ru",
-		MessageID: "6724275801631490259",
+		MessageID: "6724288965706252425",
 		Text:      "keklol",
 	}
 

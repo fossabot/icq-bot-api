@@ -2,9 +2,6 @@ package icqbotapi
 
 import (
 	"net/http"
-	"net/url"
-
-	//"github.com/mailru/easyjson"
 
 	"github.com/mailru/easyjson"
 )
@@ -16,7 +13,7 @@ type GetResponse struct {
 	FirstName string `json:"firstName"`
 	About     string `json:"about"`
 	Photo     []struct {
-		URL url.URL `json:"url"`
+		URL string `json:"url"`
 	}
 	Ok bool
 }
