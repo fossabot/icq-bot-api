@@ -2,6 +2,7 @@ package icqbotapi
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -12,8 +13,9 @@ import (
 	"github.com/mailru/easyjson"
 )
 
-var validationErr = errors.New("validation error")
+var errValidation = errors.New("validation error")
 
+// SendSendTextRequest represents plain text interaction request.
 type SendTextRequest struct {
 	ChatID           string
 	Text             string
@@ -24,33 +26,33 @@ type SendTextRequest struct {
 
 func (r *SendTextRequest) validate() error {
 	if r.ChatID == "" {
-		return validationErr
+		return errValidation
 	}
 
-	// id цитируемого сообщения не может быть передано одновременно с forwardChatId и forwardMsgId
+	// id цитируемого сообщения не может быть передано одновременно с forwardChatId и forwardMsgId.
 	if r.ReplyMessageID != 0 &&
 		(r.ForwardChatID != "" || r.ForwardMessageID != 0) {
-		return validationErr
+		return errValidation
 	}
 
-	// id чата, из которого будет переслано сообщение передается только с forwardMsgId.
+	// id чата, из которого будет переслано сообщение передается только с forwardMsgId,
 	// не может быть передано с replyMsgId.
 	if r.ForwardChatID != "" &&
 		(r.ForwardMessageID == 0 || r.ReplyMessageID != 0) {
-		return validationErr
+		return errValidation
 	}
 
-	// id пересылаемого сообщения передается только с forwardChatId
-	// не может быть передано с replyMsgId
+	// id пересылаемого сообщения передается только с forwardChatId,
+	// не может быть передано с replyMsgId.
 	if r.ForwardMessageID != 0 &&
 		(r.ForwardChatID == "" || r.ReplyMessageID != 0) {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (r *SendTextRequest) setQuery(q url.Values) {
+func (r *SendTextRequest) contributeToQuery(q url.Values) {
 	q.Set("chatId", r.ChatID)
 	q.Set("text", r.Text)
 
@@ -68,18 +70,21 @@ func (r *SendTextRequest) setQuery(q url.Values) {
 }
 
 //easyjson:json
+// StatusResponse represents common response status data.
 type StatusResponse struct {
 	Ok          bool   `json:"ok"`
 	Description string `json:"description"`
 }
 
 //easyjson:json
-type MessageIDResponse struct {
+// StatusMessageIDResponse represents response status data for requests which deal with messages.
+type StatusMessageIDResponse struct {
 	StatusResponse
-	MsgID       string `json:"msgId"`
+	MessageID string `json:"msgId"`
 }
 
-func (b *Bot) SendText(r *SendTextRequest) (*MessageIDResponse, error) {
+// SendText performs plain text message function.
+func (b *Bot) SendText(ctx context.Context, r *SendTextRequest) (*StatusMessageIDResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
@@ -90,16 +95,17 @@ func (b *Bot) SendText(r *SendTextRequest) (*MessageIDResponse, error) {
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &MessageIDResponse{}
+	defer httpResp.Body.Close()
+
+	resp := &StatusMessageIDResponse{}
 	err = easyjson.UnmarshalFromReader(httpResp.Body, resp)
 	if err != nil {
 		return nil, err
@@ -108,74 +114,75 @@ func (b *Bot) SendText(r *SendTextRequest) (*MessageIDResponse, error) {
 	return resp, err
 }
 
-type FileRequest struct {
+type fileRequest struct {
 	SendTextRequest
 	Caption string
-}
-
-func (r *FileRequest) setQuery(q url.Values) {
-	r.SendTextRequest.setQuery(q)
-	q.Set("caption", r.Caption)
-}
-
-type SendFileRequest struct {
-	FileRequest
-	FileID  string
 	IsVoice bool
 }
 
+func (r *fileRequest) contributeToQuery(q url.Values) {
+	r.SendTextRequest.contributeToQuery(q)
+	q.Set("caption", r.Caption)
+}
+
+// SendFileRequest presents request with plain text with attached existing file/voice.
+type SendFileRequest struct {
+	fileRequest
+	FileID string
+}
+
 func (r *SendFileRequest) validate() error {
-	if err := r.FileRequest.validate(); err != nil {
+	if err := r.fileRequest.validate(); err != nil {
 		return err
 	}
 
 	if r.FileID == "" {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (r *SendFileRequest) setQuery(q url.Values) {
-	r.FileRequest.setQuery(q)
+func (r *SendFileRequest) contributeToQuery(q url.Values) {
+	r.fileRequest.contributeToQuery(q)
 	q.Set("fileId", r.FileID)
 }
 
+// SendNewFileRequest presents request with plain text with attached new file/voice.
 type SendNewFileRequest struct {
-	FileRequest
+	fileRequest
 	File     io.Reader
 	Filename string
-	IsVoice  bool
 }
 
-func (b *Bot) SendFile(r *SendFileRequest) (*MessageIDResponse, error) {
+// SendFile provides the function of sending text messages with already downloaded file attachments.
+func (b *Bot) SendFile(ctx context.Context, r *SendFileRequest) (*StatusMessageIDResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
 
-	method := "/messages/sendFile"
+	m := "/messages/sendFile"
 	if r.IsVoice {
-		method = "/messages/sendVoice"
+		m = "/messages/sendVoice"
 	}
 
-	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+method, nil)
+	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+m, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	defer httpResp.Body.Close()
 
-	resp := &MessageIDResponse{}
+	resp := &StatusMessageIDResponse{}
 	err = easyjson.UnmarshalFromReader(httpResp.Body, resp)
 	if err != nil {
 		return nil, err
@@ -185,12 +192,14 @@ func (b *Bot) SendFile(r *SendFileRequest) (*MessageIDResponse, error) {
 }
 
 //easyjson:json
-type UploadFileResponse struct {
-	MessageIDResponse
+// SendNewFileResponse contains information about sent message with attached files.
+type SendNewFileResponse struct {
+	StatusMessageIDResponse
 	FileID string `json:"fileId"`
 }
 
-func (b *Bot) SendNewFile(r *SendNewFileRequest) (*UploadFileResponse, error) {
+// SendNewFile provides the function of sending text messages with file attachments.
+func (b *Bot) SendNewFile(ctx context.Context, r *SendNewFileRequest) (*SendNewFileResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
@@ -211,30 +220,29 @@ func (b *Bot) SendNewFile(r *SendNewFileRequest) (*UploadFileResponse, error) {
 		return nil, err
 	}
 
-	method := "/messages/sendFile"
+	m := "/messages/sendFile"
 	if r.IsVoice {
-		method = "/messages/sendVoice"
+		m = "/messages/sendVoice"
 	}
 
-	req, err := http.NewRequest(http.MethodPost, b.apiBaseURL+method, buf)
+	req, err := http.NewRequest(http.MethodPost, b.apiBaseURL+m, buf)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	defer httpResp.Body.Close()
 
-	resp := &UploadFileResponse{}
+	resp := &SendNewFileResponse{}
 	err = easyjson.UnmarshalFromReader(httpResp.Body, resp)
 	if err != nil {
 		return nil, err
@@ -244,6 +252,7 @@ func (b *Bot) SendNewFile(r *SendNewFileRequest) (*UploadFileResponse, error) {
 }
 
 //easyjson:json
+// EditMessageRequest represents data for editing a messages.
 type EditMessageRequest struct {
 	ChatID    string `json:"chatId"`
 	MessageID string `json:"msgId"`
@@ -254,19 +263,20 @@ func (r *EditMessageRequest) validate() error {
 	if r.ChatID == "" ||
 		r.MessageID == "" ||
 		r.Text == "" {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (r *EditMessageRequest) setQuery(q url.Values) {
+func (r *EditMessageRequest) contributeToQuery(q url.Values) {
 	q.Set("chatId", r.ChatID)
 	q.Set("msgId", r.MessageID)
 	q.Set("text", r.Text)
 }
 
-func (b *Bot) EditMessage(r *EditMessageRequest) (*MessageIDResponse, error) {
+// EditMessage provides the function of editing messages.
+func (b *Bot) EditMessage(ctx context.Context, r *EditMessageRequest) (*StatusMessageIDResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
@@ -277,18 +287,17 @@ func (b *Bot) EditMessage(r *EditMessageRequest) (*MessageIDResponse, error) {
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	defer httpResp.Body.Close()
 
-	resp := &MessageIDResponse{}
+	resp := &StatusMessageIDResponse{}
 	err = easyjson.UnmarshalFromReader(httpResp.Body, resp)
 	if err != nil {
 		return nil, err
@@ -298,41 +307,42 @@ func (b *Bot) EditMessage(r *EditMessageRequest) (*MessageIDResponse, error) {
 }
 
 //easyjson:json
+// DeleteMessageRequest represents data for deleting a messages.
 type DeleteMessageRequest struct {
-	ChatID string `json:"chatId"`
+	ChatID    string `json:"chatId"`
 	MessageID string `json:"messageId"`
 }
 
 func (r *DeleteMessageRequest) validate() error {
 	if r.ChatID == "" ||
 		r.MessageID == "" {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (r *DeleteMessageRequest) setQuery(q url.Values) {
+func (r *DeleteMessageRequest) contributeToQuery(q url.Values) {
 	q.Set("chatId", r.ChatID)
 	q.Set("msgId", r.MessageID)
 }
 
-func (b *Bot) DeleteMessage(r *DeleteMessageRequest) (*StatusResponse, error)  {
+// EditMessage provides the function of deleting messages.
+func (b *Bot) DeleteMessage(ctx context.Context, r *DeleteMessageRequest) (*StatusResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL + "/messages/deleteMessages", nil)
+	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/messages/deleteMessages", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}

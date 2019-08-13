@@ -1,6 +1,7 @@
 package icqbotapi
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
@@ -8,43 +9,46 @@ import (
 )
 
 //easyjson:json
+// Admin represents chat administrator.
 type Admin struct {
 	UserID    string
 	IsCreator bool
 }
 
+// ChatID represents chat identifier.
 type ChatID string
 
 func (r ChatID) validate() error {
 	if r == "" {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (c ChatID) setQuery(q url.Values) {
+func (c ChatID) contributeToQuery(q url.Values) {
 	q.Set("chatId", string(c))
 }
 
 //easyjson:json
+// GetAdminsResponse represents information about chat administration.
 type GetAdminsResponse struct {
 	StatusResponse
 	Admins []Admin
 }
 
-func (b *Bot) GetChatAdmins(r ChatID) (*GetAdminsResponse, error) {
+// GetChatAdmins provides a function to obtain information about the chat administration.
+func (b *Bot) GetChatAdmins(ctx context.Context, r ChatID) (*GetAdminsResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/getAdmins", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +68,7 @@ func (b *Bot) GetChatAdmins(r ChatID) (*GetAdminsResponse, error) {
 }
 
 //easyjson:json
+// ChatInfoResponse represents chat properties.
 type ChatInfoResponse struct {
 	StatusResponse
 	InviteLink url.URL `json:"inviteLink"`
@@ -72,18 +77,17 @@ type ChatInfoResponse struct {
 	Group      string  `json:"group"`
 }
 
-func (b *Bot) GetChatInfo(r ChatID) (*ChatInfoResponse, error) {
+func (b *Bot) GetChatInfo(ctx context.Context, r ChatID) (*ChatInfoResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/getAdmins", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +103,7 @@ func (b *Bot) GetChatInfo(r ChatID) (*ChatInfoResponse, error) {
 	return resp, nil
 }
 
+// ChatAction represents actions which can be in chats.
 type ChatAction string
 
 const (
@@ -107,6 +112,7 @@ const (
 )
 
 //easyjson:json
+// ChatActionsRequest represents container to sent actions to chat.
 type ChatActionsRequest struct {
 	ChatID  ChatID
 	Actions []ChatAction
@@ -116,26 +122,26 @@ func (r *ChatActionsRequest) validate() error {
 	return r.ChatID.validate()
 }
 
-func (r *ChatActionsRequest) setQuery(q url.Values) {
-	r.ChatID.setQuery(q)
+func (r *ChatActionsRequest) contributeToQuery(q url.Values) {
+	r.ChatID.contributeToQuery(q)
 
 	for _, action := range r.Actions {
 		q.Add("actions", string(action))
 	}
 }
 
-func (b *Bot) SendChatActions(r ChatActionsRequest) (*StatusResponse, error) {
+// SendChatActions provides a function to sent actions to chat.
+func (b *Bot) SendChatActions(ctx context.Context, r ChatActionsRequest) (*StatusResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/sendActions", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}

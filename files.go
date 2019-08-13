@@ -1,36 +1,40 @@
 package icqbotapi
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
 	"github.com/mailru/easyjson"
 )
 
+// FileID represents file identifier.
 type FileID string
 
 func (r FileID) validate() error {
 	if r == "" {
-		return validationErr
+		return errValidation
 	}
 
 	return nil
 }
 
-func (r FileID) setQuery(q url.Values) {
+func (r FileID) contributeToQuery(q url.Values) {
 	q.Set("fileId", string(r))
 }
 
 //easyjson:json
+// FileInfoResponse represents info about uploaded file.
 type FileInfoResponse struct {
 	StatusResponse
 	Type     string `json:"type"`
-	Size     string `json:"size"`
+	Size     uint64 `json:"size"`
 	Filename string `json:"filename"`
 	URL      string `json:"url"`
 }
 
-func (b *Bot) GetFileInfo(r FileID) (*FileInfoResponse, error) {
+// GetFileInfo provides the file information function.
+func (b *Bot) GetFileInfo(ctx context.Context, r FileID) (*FileInfoResponse, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
@@ -41,11 +45,10 @@ func (b *Bot) GetFileInfo(r FileID) (*FileInfoResponse, error) {
 	}
 
 	q := req.URL.Query()
-	b.setToken(q)
-	r.setQuery(q)
+	r.contributeToQuery(q)
 	req.URL.RawQuery = q.Encode()
 
-	httpResp, err := b.client.Do(req)
+	httpResp, err := b.doRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}

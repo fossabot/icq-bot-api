@@ -14,7 +14,6 @@ const (
 	EventTypeUnpinnedMessage EventType = "unpinnedMessage"
 	EventTypeNewChatMembers  EventType = "newChatMembers"
 	EventTypeLeftChatMembers EventType = "leftChatMembers"
-	EventTypeChangedChatInfo EventType = "changedChatInfo"
 )
 
 //easyjson:json

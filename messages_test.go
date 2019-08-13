@@ -1,6 +1,7 @@
 package icqbotapi
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -8,14 +9,11 @@ import (
 	"time"
 )
 
-var bot = Bot{
+var bot = New(
 	token,
-	apiBaseURL,
 	&http.Client{
 		Timeout: time.Minute * 2,
-	},
-	time.Minute,
-}
+	})
 
 func TestBot_SendText(t *testing.T) {
 	req := &SendTextRequest{
@@ -23,7 +21,7 @@ func TestBot_SendText(t *testing.T) {
 		Text:   "kek",
 	}
 
-	resp, err := bot.SendText(req)
+	resp, err := bot.SendText(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +31,7 @@ func TestBot_SendText(t *testing.T) {
 
 func TestBot_SendFile(t *testing.T) {
 	req := &SendFileRequest{
-		FileRequest: FileRequest{
+		fileRequest: fileRequest{
 			SendTextRequest: SendTextRequest{
 				ChatID: "p.radkov@corp.mail.ru",
 				Text:   "is's pepe",
@@ -43,22 +41,12 @@ func TestBot_SendFile(t *testing.T) {
 		FileID: "05j5L69UrfAdj8tZCGyi8H5d5160d61af",
 	}
 
-	go func() {
-		for range time.Tick(time.Second * 10) {
-			bot.SendChatActions(ChatActionsRequest{"p.radkov@corp.mail.ru", []ChatAction{}})
-		}
-	}()
-
-	resp, err := bot.SendFile(req)
+	resp, err := bot.SendFile(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	log.Printf("%#v", resp)
-
-	x, cancel := bot.PollEvents()
-	<-x
-	cancel()
 }
 
 func TestBot_SendNewFile(t *testing.T) {
@@ -69,7 +57,7 @@ func TestBot_SendNewFile(t *testing.T) {
 	defer f.Close()
 
 	req := &SendNewFileRequest{
-		FileRequest: FileRequest{
+		fileRequest: fileRequest{
 			SendTextRequest: SendTextRequest{
 				ChatID: "p.radkov@corp.mail.ru",
 				Text:   "is's pepe",
@@ -80,7 +68,7 @@ func TestBot_SendNewFile(t *testing.T) {
 		Filename: "pepe.jpg",
 	}
 
-	resp, err := bot.SendNewFile(req)
+	resp, err := bot.SendNewFile(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +83,7 @@ func TestBot_EditMessage(t *testing.T) {
 		Text:      "keklol",
 	}
 
-	resp, err := bot.EditMessage(req)
+	resp, err := bot.EditMessage(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +97,7 @@ func TestBot_DeleteMessage(t *testing.T) {
 		MessageID: "6724275801631490259",
 	}
 
-	resp, err := bot.DeleteMessage(req)
+	resp, err := bot.DeleteMessage(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
