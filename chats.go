@@ -18,8 +18,8 @@ type Admin struct {
 // ChatID represents chat identifier.
 type ChatID string
 
-func (r ChatID) validate() error {
-	if r == "" {
+func (c ChatID) validate() error {
+	if c == "" {
 		return errValidation
 	}
 
@@ -77,8 +77,14 @@ type ChatInfoResponse struct {
 	Group      string  `json:"group"`
 }
 
+//nolint:dupl
+// GetChatInfo returns information about chat.
 func (b *Bot) GetChatInfo(ctx context.Context, r ChatID) (*ChatInfoResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/getAdmins", nil)
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/getInfo", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -131,28 +137,42 @@ func (r *ChatActionsRequest) contributeToQuery(q url.Values) {
 }
 
 // SendChatActions provides a function to sent actions to chat.
-func (b *Bot) SendChatActions(ctx context.Context, r ChatActionsRequest) (*StatusResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/sendActions", nil)
-	if err != nil {
-		return nil, err
-	}
+func (b *Bot) SendChatActions(ctx context.Context, reqs <-chan ChatActionsRequest) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case r, ok := <-reqs:
+				if !ok {
+					return
+				}
 
-	q := req.URL.Query()
-	r.contributeToQuery(q)
-	req.URL.RawQuery = q.Encode()
+				if err := r.validate(); err != nil {
+					b.handleError(err)
+					continue
+				}
 
-	httpResp, err := b.doRequest(ctx, req)
-	if err != nil {
-		return nil, err
-	}
+				req, err := http.NewRequest(http.MethodGet, b.apiBaseURL+"/chats/sendActions", nil)
+				if err != nil {
+					b.handleError(err)
+					continue
+				}
 
-	defer httpResp.Body.Close()
+				req = req.WithContext(ctx)
 
-	resp := &StatusResponse{}
-	err = easyjson.UnmarshalFromReader(httpResp.Body, resp)
-	if err != nil {
-		return nil, err
-	}
+				q := req.URL.Query()
+				r.contributeToQuery(q)
+				req.URL.RawQuery = q.Encode()
 
-	return resp, nil
+				httpResp, err := b.doRequest(ctx, req)
+				if err != nil {
+					b.handleError(err)
+					continue
+				}
+
+				httpResp.Body.Close()
+			}
+		}
+	}()
 }

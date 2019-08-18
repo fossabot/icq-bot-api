@@ -5,35 +5,30 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"testing"
-	"time"
 )
 
-var bot = New(
-	token,
-	&http.Client{
-		Timeout: time.Minute * 2,
-	})
+func ExampleBot_SendText() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
 
-func TestBot_SendText(t *testing.T) {
 	req := &SendTextRequest{
-		ChatID: "p.radkov@corp.mail.ru",
+		ChatID: "chat1",
 		Text:   "kek",
 	}
 
-	resp, err := bot.SendText(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp, _ := bot.SendText(context.Background(), req)
 
 	log.Printf("%+v", resp)
 }
 
-func TestBot_SendFile(t *testing.T) {
+func ExampleBot_SendFile() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
 	req := &SendFileRequest{
 		fileRequest: fileRequest{
 			SendTextRequest: SendTextRequest{
-				ChatID: "p.radkov@corp.mail.ru",
+				ChatID: "chat1",
 				Text:   "is's pepe",
 			},
 			Caption: "it's pepe",
@@ -41,25 +36,26 @@ func TestBot_SendFile(t *testing.T) {
 		FileID: "05j5L69UrfAdj8tZCGyi8H5d5160d61af",
 	}
 
-	resp, err := bot.SendFile(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp, _ := bot.SendFile(context.Background(), req)
 
 	log.Printf("%#v", resp)
 }
 
-func TestBot_SendNewFile(t *testing.T) {
-	f, err := os.Open("/Users/p.radkov/pepe.jpg")
+func ExampleBot_SendNewFile() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
+	f, err := os.Open("./pepe.jpg")
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
+
 	defer f.Close()
 
 	req := &SendNewFileRequest{
 		fileRequest: fileRequest{
 			SendTextRequest: SendTextRequest{
-				ChatID: "p.radkov@corp.mail.ru",
+				ChatID: "chat1",
 				Text:   "is's pepe",
 			},
 			Caption: "it's pepe",
@@ -68,39 +64,36 @@ func TestBot_SendNewFile(t *testing.T) {
 		Filename: "pepe.jpg",
 	}
 
-	resp, err := bot.SendNewFile(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp, _ := bot.SendNewFile(context.Background(), req)
 
 	log.Printf("%#v", resp)
 }
 
-func TestBot_EditMessage(t *testing.T) {
+func ExampleBot_EditMessage() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
 	req := &EditMessageRequest{
-		ChatID:    "p.radkov@corp.mail.ru",
+		ChatID:    "chat1",
 		MessageID: "6724288965706252425",
-		Text:      "keklol",
+		Text:      "kek",
 	}
 
-	resp, err := bot.EditMessage(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp, _ := bot.EditMessage(context.Background(), req)
 
 	log.Printf("%#v", resp)
 }
 
-func TestBot_DeleteMessage(t *testing.T) {
+func ExampleBot_DeleteMessage() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
 	req := &DeleteMessageRequest{
-		ChatID:    "p.radkov@corp.mail.ru",
+		ChatID:    "chat1",
 		MessageID: "6724275801631490259",
 	}
 
-	resp, err := bot.DeleteMessage(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp, _ := bot.DeleteMessage(context.Background(), req)
 
 	log.Printf("%#v", resp)
 }

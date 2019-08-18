@@ -10,17 +10,27 @@ import (
 	"icqbotapi/event"
 )
 
-const apiBaseURL = "https://api.icq.net/bot/v1"
-const tokenQueryParam = "token"
+const (
+	icqAPIBaseURL   = "https://api.icq.net/bot/v1"
+	agentAPIBaseURL = "https://agent.mail.ru/bot/v1"
+	tokenQueryParam = "token"
+)
 
-type newMessageHandlerFunc func(e event.EventNewMessagePayload)
-type editMessageHandlerFunc func(e event.EventTypeEditedPayload)
-type deleteMessageHandlerFunc func(e event.EventTypeDeletedPayload)
-type pinMessageHandlerFunc func(e event.EventTypePinnedPayload)
-type unpinMessageHandlerFunc func(e event.EventTypeUnpinnedPayload)
-type newChatMembersHandlerFunc func(e event.EventTypeNewChatMembersPayload)
-type leftChatMembersHandlerFunc func(e event.EventTypeLeftChatMembersPayload)
-type changeChatInfoHandlerFunc func(e event.EventTypeLeftChatMembersPayload)
+type apiType int
+
+const (
+	APITypeICQ apiType = iota
+	APITypeAgent
+)
+
+type newMessageHandlerFunc func(e event.NewMessagePayload)
+type editMessageHandlerFunc func(e event.MessageEditPayload)
+type deleteMessageHandlerFunc func(e event.MessageDeletePayload)
+type pinMessageHandlerFunc func(e event.MessagePinPayload)
+type unpinMessageHandlerFunc func(e event.MessageUnpinPayload)
+type newChatMembersHandlerFunc func(e event.NewChatMembersPayload)
+type leftChatMembersHandlerFunc func(e event.LeftChatMembersPayload)
+type errorHandlerFunc func(err error)
 
 type botState int
 
@@ -30,6 +40,20 @@ const (
 	botStateStopped
 )
 
+type botHandlers struct {
+	newMessageHandler    newMessageHandlerFunc
+	editMessageHandler   editMessageHandlerFunc
+	deleteMessageHandler deleteMessageHandlerFunc
+
+	pinMessageHandler   pinMessageHandlerFunc
+	unpinMessageHandler unpinMessageHandlerFunc
+
+	newChatMemberHandler   newChatMembersHandlerFunc
+	leftChatMembersHandler leftChatMembersHandlerFunc
+
+	errorHandler errorHandlerFunc
+}
+
 type Bot struct {
 	state botState
 
@@ -37,21 +61,16 @@ type Bot struct {
 	apiBaseURL   string
 	client       *http.Client
 	pollDuration time.Duration
-
-	handlers struct {
-		newMessageHandler      newMessageHandlerFunc
-		editMessageHandler     editMessageHandlerFunc
-		deleteMessageHandler   deleteMessageHandlerFunc
-		pinMessageHandler      pinMessageHandlerFunc
-		unpinMessageHandler    unpinMessageHandlerFunc
-		newChatMemberHandler   newChatMembersHandlerFunc
-		leftChatMembersHandler leftChatMembersHandlerFunc
-		changeChatInfoHandler  changeChatInfoHandlerFunc
-	}
+	handlers     botHandlers
 }
 
 // New creates new instance of Bot
-func New(token string, client *http.Client) *Bot {
+func New(token string, client *http.Client, t apiType) *Bot {
+	apiBaseURL := icqAPIBaseURL
+	if t == APITypeAgent {
+		apiBaseURL = agentAPIBaseURL
+	}
+
 	return &Bot{
 		state:        botStateStopped,
 		token:        token,
@@ -70,8 +89,8 @@ type GetSelfResponse struct {
 	About     string `json:"about"`
 	Photo     []struct {
 		URL string `json:"url"`
-	}
-	Ok bool
+	} `json:"photo"`
+	Ok bool `json:"ok"`
 }
 
 // GetSelf returns information about Bot.
@@ -143,7 +162,99 @@ func (b *Bot) SetLeftChatMemberHandler(fn leftChatMembersHandlerFunc) {
 	b.handlers.leftChatMembersHandler = fn
 }
 
-// SetChangeChatInfoHandler sets the handler to events about change chat properties.
-func (b *Bot) SetChangeChatInfoHandler(fn changeChatInfoHandlerFunc) {
-	b.handlers.changeChatInfoHandler = fn
+// SetErrorHandler sets the processing errors handler.
+func (b *Bot) SetErrorHandler(fn errorHandlerFunc) {
+	b.handlers.errorHandler = fn
+}
+
+func (b *Bot) unmarshalEvent(p []byte, v easyjson.Unmarshaler) bool {
+	if err := easyjson.Unmarshal(p, v); err != nil {
+		b.handleError(err)
+		return false
+	}
+
+	return true
+}
+
+func (b *Bot) handleNewMessage(r event.Event) {
+	if b.handlers.newMessageHandler != nil {
+		e := event.NewMessagePayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.newMessageHandler(e)
+	}
+}
+
+func (b *Bot) handleEditMessage(r event.Event) {
+	if b.handlers.editMessageHandler != nil {
+		e := event.MessageEditPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.editMessageHandler(e)
+	}
+}
+
+func (b *Bot) handleDeleteMessage(r event.Event) {
+	if b.handlers.deleteMessageHandler != nil {
+		e := event.MessageEditPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.editMessageHandler(e)
+	}
+}
+
+func (b *Bot) handlePinMessage(r event.Event) {
+	if b.handlers.pinMessageHandler != nil {
+		e := event.MessagePinPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.pinMessageHandler(e)
+	}
+}
+
+func (b *Bot) handleUnpinMessage(r event.Event) {
+	if b.handlers.unpinMessageHandler != nil {
+		e := event.MessageUnpinPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.unpinMessageHandler(e)
+	}
+}
+
+func (b *Bot) handleNewChatMember(r event.Event) {
+	if b.handlers.newChatMemberHandler != nil {
+		e := event.NewChatMembersPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.newChatMemberHandler(e)
+	}
+}
+
+func (b *Bot) handleLeftChatMember(r event.Event) {
+	if b.handlers.leftChatMembersHandler != nil {
+		e := event.LeftChatMembersPayload{}
+		if !b.unmarshalEvent(r.Payload, &e) {
+			return
+		}
+
+		b.handlers.leftChatMembersHandler(e)
+	}
+}
+
+func (b *Bot) handleError(err error) {
+	if b.handlers.errorHandler != nil {
+		b.handlers.errorHandler(err)
+	}
 }
