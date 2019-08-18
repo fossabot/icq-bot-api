@@ -2,47 +2,66 @@ package icqbotapi
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"icqbotapi/event"
 )
 
-const token = "001.1104030426.1757333006:757143498"
+func TestBot_GetSelf(t *testing.T) {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
 
-//func TestBot_Get(t *testing.T) {
-//	bot := Bot{
-//		token,
-//		apiBaseURL,
-//		http.DefaultClient,
-//		time.Minute,
-//	}
-//
-//	//r, err := bot.Get()
-//	//if err != nil {
-//	//	t.Fatal(err)
-//	//}
-//
-//	//log.Printf("%+v", r)
-//
-//	x, cancel := bot.PollEvents()
-//	<-x
-//	cancel()
-//}
+	r, err := bot.GetSelf(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func TestBot_PollEvents(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	if !r.Ok {
+		t.Fatal("unexpected response status")
+	}
+}
 
-	bot := New(token, http.DefaultClient)
-	bot.SetNewMessageHandler(func(e event.EventNewMessagePayload) {
-		spew.Dump(e)
+func ExampleNew() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+	_ = bot
+}
+
+func ExampleBot_GetSelf() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
+	data, _ := bot.GetSelf(context.Background())
+
+	log.Printf("%#v", data)
+}
+
+func ExampleBot_PollEvents() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
+	for event := range bot.PollEvents(context.Background()) {
+		log.Printf("%#v", event)
+	}
+}
+
+func ExampleBot_HandleEvents() {
+	const token = "001.1104030426.1757333006:757143498"
+	bot := New(token, http.DefaultClient, APITypeICQ)
+
+	bot.SetNewMessageHandler(func(e event.NewMessagePayload) {
+		log.Printf("%#v", e)
 	})
 
-	go bot.HandleEvents(ctx)
+	bot.SetErrorHandler(func(err error) {
+		log.Print(err)
+	})
 
-	time.Sleep(time.Second * 20)
+	ctx, cancel := context.WithCancel(context.Background())
+	bot.HandleEvents(ctx)
+	time.Sleep(time.Second * 3)
 	cancel()
 }

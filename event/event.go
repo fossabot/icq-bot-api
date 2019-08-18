@@ -4,35 +4,37 @@ import (
 	"encoding/json"
 )
 
-type EventType string
+// Kind represents event kind
+type Kind string
 
 const (
-	EventTypeNewMessage      EventType = "newMessage"
-	EventTypeEditedMessage   EventType = "editedMessage"
-	EventTypeDeletedMessage  EventType = "deletedMessage"
-	EventTypePinnedMessage   EventType = "pinnedMessage"
-	EventTypeUnpinnedMessage EventType = "unpinnedMessage"
-	EventTypeNewChatMembers  EventType = "newChatMembers"
-	EventTypeLeftChatMembers EventType = "leftChatMembers"
+	KindNewMessage      Kind = "newMessage"
+	KindEditedMessage   Kind = "editedMessage"
+	KindDeletedMessage  Kind = "deletedMessage"
+	KindPinnedMessage   Kind = "pinnedMessage"
+	KindUnpinnedMessage Kind = "unpinnedMessage"
+	KindNewChatMember   Kind = "newChatMembers"
+	KindLeftChatMembers Kind = "leftChatMembers"
 )
 
 //easyjson:json
 type Event struct {
 	EventID int             `json:"eventId"`
-	Type    EventType       `json:"type"`
+	Type    Kind            `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
-type ChatType string
+type ChatKind string
 
 const (
-	ChatTypeChannel = "channel"
+	ChatKindChannel ChatKind = "channel"
+	ChatKindGroup   ChatKind = "group"
 )
 
 //easyjson:json
 type Chat struct {
 	ChatID string   `json:"chatId"`
-	Type   ChatType `json:"type"`
+	Type   ChatKind `json:"type"`
 	Title  string   `json:"title"`
 }
 
@@ -44,8 +46,8 @@ type User struct {
 }
 
 //easyjson:json
-type EventNewMessagePayload struct {
-	MessageID string        `json:"messageId"`
+type NewMessagePayload struct {
+	MessageID string        `json:"msgId"`
 	Chat      Chat          `json:"chat"`
 	From      User          `json:"from"`
 	Timestamp uint64        `json:"timestamp"`
@@ -54,8 +56,8 @@ type EventNewMessagePayload struct {
 }
 
 //easyjson:json
-type EventTypeEditedPayload struct {
-	MessageID string `json:"messageId"`
+type MessageEditPayload struct {
+	MessageID string `json:"msgId"`
 	Chat      Chat   `json:"chat"`
 	From      User   `json:"from"`
 	Timestamp uint64 `json:"timestamp"`
@@ -64,15 +66,15 @@ type EventTypeEditedPayload struct {
 }
 
 //easyjson:json
-type EventTypeDeletedPayload struct {
-	MessageID string `json:"messageId"`
+type MessageDeletePayload struct {
+	MessageID string `json:"msgId"`
 	Chat      Chat   `json:"chat"`
 	Timestamp uint64 `json:"timestamp"`
 }
 
 //easyjson:json
-type EventTypePinnedPayload struct {
-	MessageID string `json:"messageId"`
+type MessagePinPayload struct {
+	MessageID string `json:"msgId"`
 	Chat      Chat   `json:"chat"`
 	From      User   `json:"from"`
 	Timestamp uint64 `json:"timestamp"`
@@ -80,40 +82,40 @@ type EventTypePinnedPayload struct {
 }
 
 //easyjson:json
-type EventTypeUnpinnedPayload struct {
-	MessageID string `json:"messageId"`
+type MessageUnpinPayload struct {
+	MessageID string `json:"msgId"`
 	Chat      Chat   `json:"chat"`
 	Timestamp uint64 `json:"timestamp"`
 }
 
 //easyjson:json
-type EventTypeNewChatMembersPayload struct {
-	MessageID string `json:"messageId"`
+type NewChatMembersPayload struct {
+	MessageID string `json:"msgId"`
 	Chat      Chat   `json:"chat"`
 	Timestamp uint64 `json:"timestamp"`
 }
 
 //easyjson:json
-type EventTypeLeftChatMembersPayload struct {
+type LeftChatMembersPayload struct {
 	Chat        Chat   `json:"chat"`
 	LeftMembers []User `json:"leftMembers"`
 	RemovedBy   User   `json:"removedBy"`
 }
 
 type Message struct {
-	MessageID string `json:"messageId"`
+	MessageID string `json:"msgId"`
 	From      User   `json:"from"`
 	Text      string `json:"text"`
 	Timestamp uint64 `json:"timestamp"`
 }
 
 //easyjson:json
-type EventTypeReplyPayload struct {
+type ReplyPayload struct {
 	Message Message `json:"message"`
 }
 
 //easyjson:json
-type EventTypeForwardPayload struct {
+type ForwardPayload struct {
 	Message Message `json:"message"`
 }
 
@@ -125,21 +127,21 @@ type File struct {
 }
 
 //easyjson:json
-type EventTypeFilePayload struct {
+type FilePayload struct {
 	File
 }
 
 //easyjson:json
-type EventTypeVoicePayload struct {
+type VoicePayload struct {
 	FileID string `json:"fileId"`
 }
 
 //easyjson:json
-type EventTypeStickerPayload struct {
+type StickerPayload struct {
 	FileID string `json:"fileId"`
 }
 
 //easyjson:json
-type EventTypeMentionPayload struct {
+type MentionPayload struct {
 	User
 }

@@ -2,7 +2,6 @@ package icqbotapi
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -38,79 +37,29 @@ func (b *Bot) HandleEvents(ctx context.Context) {
 	b.state = botStateHandling
 	events := make(chan event.Event)
 
-	unmarshal := func(r json.RawMessage, u easyjson.Unmarshaler) error {
-		err := easyjson.Unmarshal(r, u)
-		if err != nil {
-			log.Print(err)
-		}
-
-		return err
-	}
-
 	go b.poll(ctx, events)
-
-	for ev := range events {
-		switch ev.Type {
-		case event.EventTypeNewMessage:
-			payload := event.EventNewMessagePayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
+	go func() {
+		for ev := range events {
+			switch ev.Type {
+			case event.KindNewMessage:
+				b.handleNewMessage(ev)
+			case event.KindEditedMessage:
+				b.handleEditMessage(ev)
+			case event.KindDeletedMessage:
+				b.handleDeleteMessage(ev)
+			case event.KindPinnedMessage:
+				b.handlePinMessage(ev)
+			case event.KindUnpinnedMessage:
+				b.handleUnpinMessage(ev)
+			case event.KindNewChatMember:
+				b.handleNewChatMember(ev)
+			case event.KindLeftChatMembers:
+				b.handleLeftChatMember(ev)
+			default:
+				log.Panicf("unexpected event type: %v", ev.Type)
 			}
-
-			b.handlers.newMessageHandler(payload)
-		case event.EventTypeEditedMessage:
-			payload := event.EventTypeEditedPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.editMessageHandler(payload)
-		case event.EventTypeDeletedMessage:
-			payload := event.EventTypeDeletedPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.deleteMessageHandler(payload)
-		case event.EventTypePinnedMessage:
-			payload := event.EventTypePinnedPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.pinMessageHandler(payload)
-		case event.EventTypeUnpinnedMessage:
-			payload := event.EventTypeUnpinnedPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.unpinMessageHandler(payload)
-		case event.EventTypeNewChatMembers:
-			payload := event.EventTypeNewChatMembersPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.newChatMemberHandler(payload)
-		case event.EventTypeLeftChatMembers:
-			payload := event.EventTypeLeftChatMembersPayload{}
-			err := unmarshal(ev.Payload, &payload)
-			if err != nil {
-				continue
-			}
-
-			b.handlers.leftChatMembersHandler(payload)
-		default:
-			log.Panicf("unexpected event type: %v", ev.Type)
 		}
-	}
+	}()
 }
 
 func (b *Bot) poll(ctx context.Context, events chan<- event.Event) {
@@ -151,15 +100,15 @@ func (b *Bot) poll(ctx context.Context, events chan<- event.Event) {
 			panic(err)
 		}
 
-		maxEventId := 0
+		maxEventID := 0
 		for _, ev := range resp.Events {
-			if ev.EventID > maxEventId {
-				maxEventId = ev.EventID
+			if ev.EventID > maxEventID {
+				maxEventID = ev.EventID
 			}
 
 			events <- ev
 		}
 
-		lastEventID = maxEventId
+		lastEventID = maxEventID
 	}
 }

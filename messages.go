@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/mailru/easyjson/opt"
+
 	"github.com/mailru/easyjson"
 )
 
@@ -72,8 +74,8 @@ func (r *SendTextRequest) contributeToQuery(q url.Values) {
 //easyjson:json
 // StatusResponse represents common response status data.
 type StatusResponse struct {
-	Ok          bool   `json:"ok"`
-	Description string `json:"description"`
+	Ok          bool       `json:"ok"`
+	Description opt.String `json:"description"`
 }
 
 //easyjson:json
@@ -83,6 +85,7 @@ type StatusMessageIDResponse struct {
 	MessageID string `json:"msgId"`
 }
 
+//nolint:dupl
 // SendText performs plain text message function.
 func (b *Bot) SendText(ctx context.Context, r *SendTextRequest) (*StatusMessageIDResponse, error) {
 	if err := r.validate(); err != nil {
@@ -216,6 +219,7 @@ func (b *Bot) SendNewFile(ctx context.Context, r *SendNewFileRequest) (*SendNewF
 		return nil, err
 	}
 
+	//nolint:govet
 	if err := mw.Close(); err != nil {
 		return nil, err
 	}
@@ -275,6 +279,7 @@ func (r *EditMessageRequest) contributeToQuery(q url.Values) {
 	q.Set("text", r.Text)
 }
 
+//nolint:dupl
 // EditMessage provides the function of editing messages.
 func (b *Bot) EditMessage(ctx context.Context, r *EditMessageRequest) (*StatusMessageIDResponse, error) {
 	if err := r.validate(); err != nil {
@@ -310,7 +315,7 @@ func (b *Bot) EditMessage(ctx context.Context, r *EditMessageRequest) (*StatusMe
 // DeleteMessageRequest represents data for deleting a messages.
 type DeleteMessageRequest struct {
 	ChatID    string `json:"chatId"`
-	MessageID string `json:"messageId"`
+	MessageID string `json:"msgId"`
 }
 
 func (r *DeleteMessageRequest) validate() error {
@@ -327,6 +332,7 @@ func (r *DeleteMessageRequest) contributeToQuery(q url.Values) {
 	q.Set("msgId", r.MessageID)
 }
 
+//nolint:dupl
 // EditMessage provides the function of deleting messages.
 func (b *Bot) DeleteMessage(ctx context.Context, r *DeleteMessageRequest) (*StatusResponse, error) {
 	if err := r.validate(); err != nil {
